@@ -19,7 +19,11 @@ function apiBase() {
 
 function headers(extra = {}) {
   const { token } = getConnection()
-  return { ...extra, Authorization: `Bearer ${token}` }
+  return {
+    ...extra,
+    Authorization: `Bearer ${token}`,
+    'ngrok-skip-browser-warning': 'true',
+  }
 }
 
 async function request(path, options = {}) {

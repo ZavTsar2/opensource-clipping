@@ -1,0 +1,45 @@
+name: Deploy Clip Studio
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - web/dashboard/**
+      - .github/workflows/deploy-studio.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/dashboard/package-lock.json
+      - run: npm ci
+        working-directory: web/dashboard
+      - run: npm run build -- --base=/${{ github.event.repository.name }}/
+        working-directory: web/dashboard
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dashboard/dist
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

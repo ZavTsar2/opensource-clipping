@@ -1,88 +1,85 @@
-const API_BASE = '/api'
+const CONNECTION_KEY = 'clip-studio-connection'
+
+export function getConnection() {
+  try {
+    return JSON.parse(localStorage.getItem(CONNECTION_KEY)) || { url: '', token: '' }
+  } catch {
+    return { url: '', token: '' }
+  }
+}
+
+export function saveConnection(connection) {
+  localStorage.setItem(CONNECTION_KEY, JSON.stringify(connection))
+}
+
+function apiBase() {
+  const { url } = getConnection()
+  return `${url.replace(/\/$/, '')}/api`
+}
+
+function headers(extra = {}) {
+  const { token } = getConnection()
+  return { ...extra, Authorization: `Bearer ${token}` }
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(`${apiBase()}${path}`, {
+    ...options,
+    headers: headers(options.headers),
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.detail || friendlyError(response.status))
+  }
+  return response
+}
+
+function friendlyError(status) {
+  if (status === 401) return 'The notebook token was rejected. Check your connection settings.'
+  if (status === 403) return 'This site is not allowed by the notebook CORS settings.'
+  if (status === 503) return 'The notebook token is not configured yet.'
+  return 'The notebook could not complete that request.'
+}
 
 export async function fetchJobs() {
-  const res = await fetch(`${API_BASE}/jobs`)
-  if (!res.ok) throw new Error('Failed to fetch jobs')
+  const res = await request('/jobs')
   return res.json()
 }
 
 export async function fetchJob(jobId) {
-  const res = await fetch(`${API_BASE}/jobs/${jobId}`)
-  if (!res.ok) throw new Error('Job not found')
+  const res = await request(`/jobs/${jobId}`)
   return res.json()
 }
 
 export async function createJob(payload) {
-  const res = await fetch(`${API_BASE}/jobs`, {
+  const res = await request('/jobs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Failed to create job')
-  }
   return res.json()
 }
 
 export async function deleteJob(jobId) {
-  const res = await fetch(`${API_BASE}/jobs/${jobId}`, { method: 'DELETE' })
-  if (!res.ok) throw new Error('Failed to delete job')
-  return res.json()
-}
-
-export async function uploadVideo(file, onProgress) {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const res = await fetch(`${API_BASE}/upload`, {
-    method: 'POST',
-    body: formData,
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.detail || 'Upload failed')
-  }
-  return res.json()
-}
-
-export async function fetchSettings() {
-  const res = await fetch(`${API_BASE}/settings`)
-  if (!res.ok) throw new Error('Failed to fetch settings')
-  return res.json()
-}
-
-export async function updateSettings(payload) {
-  const res = await fetch(`${API_BASE}/settings`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error('Failed to update settings')
+  const res = await request(`/jobs/${jobId}`, { method: 'DELETE' })
   return res.json()
 }
 
 export async function fetchHealth() {
-  const res = await fetch(`${API_BASE}/health`)
-  if (!res.ok) throw new Error('Health check failed')
+  const res = await request('/health')
   return res.json()
 }
 
-export function createSSEConnection(jobId, onMessage) {
-  const eventSource = new EventSource(`${API_BASE}/jobs/${jobId}/status`)
+export async function fetchMedia(path) {
+  const response = await request(normalizeMediaPath(path))
+  return URL.createObjectURL(await response.blob())
+}
 
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      onMessage(data)
-    } catch (e) {
-      console.error('SSE parse error:', e)
-    }
+function normalizeMediaPath(path) {
+  if (path.startsWith('http')) {
+    const connectionUrl = getConnection().url.replace(/\/$/, '')
+    if (!path.startsWith(connectionUrl)) throw new Error('The notebook returned an untrusted media URL.')
+    return path.slice(connectionUrl.length)
   }
-
-  eventSource.onerror = () => {
-    eventSource.close()
-  }
-
-  return eventSource
+  return path.startsWith('/api/') ? path.slice(4) : path
 }

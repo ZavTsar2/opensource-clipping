@@ -10,12 +10,31 @@ Run with:
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .routes import jobs, files, settings
+
+
+def require_api_token(authorization: str | None = Header(default=None)) -> None:
+    """Protect a personal notebook tunnel from unauthenticated use."""
+    import hmac
+    import os
+
+    expected = os.environ.get("CLIP_STUDIO_TOKEN")
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CLIP_STUDIO_TOKEN is not configured on this notebook.",
+        )
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing studio token.")
+    supplied = authorization.removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(supplied, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid studio token.")
 
 
 @asynccontextmanager
@@ -31,21 +50,19 @@ app = FastAPI(
     description="AI Auto-Clipper & Teaser Generator — Web GUI API",
     version="1.12.0",
     lifespan=lifespan,
+    dependencies=[Depends(require_api_token)],
 )
 
 # CORS — allow frontend dev server
+allowed_origins = [origin.strip() for origin in os.environ.get(
+    "CLIP_STUDIO_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+).split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-        "https://naufalrizqullah.github.io",
-    ],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -64,18 +81,3 @@ async def root():
         "docs": "/docs",
         "health": "/api/health",
     }
-
-import os
-import signal
-import asyncio
-
-@app.post("/api/shutdown")
-async def shutdown_server():
-    """Trigger graceful shutdown of the FastAPI server."""
-    # Send SIGINT to own process to trigger uvicorn graceful shutdown
-    async def _shutdown():
-        await asyncio.sleep(0.5)
-        os.kill(os.getpid(), signal.SIGINT)
-    
-    asyncio.create_task(_shutdown())
-    return {"status": "shutting down", "message": "Server is stopping..."}

@@ -47,7 +47,12 @@ export default function App() {
     try {
       const job = await fetchJob(id)
       setJobs((current) => current.map((item) => item.id === id ? { ...item, ...job } : item))
-    } catch (err) { setError(err.message) } finally { if (showLoading) setRefreshingId('') }
+    } catch (err) {
+      if (err.status === 404) {
+        setJobs((current) => current.filter((item) => item.id !== id))
+        if (showLoading) setError('That old job belonged to a previous notebook session, so it was removed from this browser.')
+      } else { setError(err.message) }
+    } finally { if (showLoading) setRefreshingId('') }
   }
 
   async function startJob(event) {

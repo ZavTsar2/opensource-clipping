@@ -33,7 +33,9 @@ async function request(path, options = {}) {
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(error.detail || friendlyError(response.status))
+    const message = new Error(error.detail || friendlyError(response.status))
+    message.status = response.status
+    throw message
   }
   return response
 }

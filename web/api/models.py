@@ -58,6 +58,13 @@ class AIProvider(str, enum.Enum):
     NVIDIA = "nvidia"
 
 
+class ClipCategory(str, enum.Enum):
+    VIRAL = "viral"
+    FUNNY = "funny"
+    SERIOUS = "serious"
+    EDUCATIONAL = "educational"
+
+
 class WhisperDevice(str, enum.Enum):
     CUDA = "cuda"
     CPU = "cpu"
@@ -84,6 +91,7 @@ class JobCreateRequest(BaseModel):
     render_height: str = Field("1080", description="Target output height")
     min_clip_seconds: int = Field(30, ge=10, le=120, description="Minimum finished clip duration")
     max_clip_seconds: int = Field(75, ge=15, le=180, description="Maximum finished clip duration")
+    clip_category: ClipCategory = Field(ClipCategory.VIRAL, description="Selection style for the generated clips")
 
     # Content & Hook
     words_per_sub: int = Field(5, ge=1, le=15)

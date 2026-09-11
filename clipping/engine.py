@@ -571,6 +571,13 @@ def get_analysis_prompt(transkrip_lengkap: str, jumlah_clip: int, durasi_hook: i
     max_clip_duration = int(getattr(cfg, "max_clip_seconds", MAX_CLIP_DURATION)) if cfg else MAX_CLIP_DURATION
     if max_clip_duration < min_clip_duration:
         max_clip_duration = min_clip_duration
+    category = str(getattr(cfg, "clip_category", "viral")).lower() if cfg else "viral"
+    category_instructions = {
+        "funny": "Pilih momen paling lucu, absurd, reaksi, punchline, atau banter. Utamakan setup lalu payoff yang jelas.",
+        "serious": "Pilih momen paling emosional, dramatis, penting, atau penuh konflik. Hindari candaan dan filler.",
+        "educational": "Pilih insight, langkah praktis, penjelasan, atau lesson yang lengkap dan bisa dipahami sendiri.",
+        "viral": "Pilih momen paling kuat untuk perhatian, share, komentar, dan retention secara umum.",
+    }.get(category, "Pilih momen paling kuat untuk perhatian, share, komentar, dan retention secara umum.")
     # Build optional Hook V2 prompt section
     _hook_v2_prompt = ""
     if cfg and getattr(cfg, "hook_v2", False):
@@ -614,6 +621,7 @@ Baca transkrip video berikut. Format transkrip:
 
 TUGAS UTAMA:
 - Carikan {jumlah_clip} momen paling menarik, paling kuat, paling shareable, dan paling berpotensi viral untuk dijadikan klip pendek.
+- FOKUS PILIHAN: {category_instructions}
 - Urutkan klip berdasarkan viral_score tertinggi (paling berpotensi viral) ke terendah. Peringkat ("rank") hanya sebagai nomor urut (1, 2, 3...).
 - Untuk setiap klip, hasilkan timing klip, hook, typography plan, b-roll plan, alasan pemilihan, metadata lintas platform, dan klasifikasi akun tujuan.
 - Semua output harus sangat relevan dengan isi klip, bukan isi video penuh secara umum.

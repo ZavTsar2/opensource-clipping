@@ -135,6 +135,7 @@ def build_config_from_payload(
         # The personal studio favours usable Shorts over tiny teaser fragments.
         min_clip_seconds=payload.get("min_clip_seconds", 30),
         max_clip_seconds=payload.get("max_clip_seconds", 75),
+        clip_category=payload.get("clip_category", "viral"),
         pilihan_rasio=payload.get("ratio", "9:16"),
         download_source_height=source_height,
         render_output_height=render_height,

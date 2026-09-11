@@ -15,6 +15,8 @@ export default function App() {
   const [health, setHealth] = useState(null)
   const [url, setUrl] = useState('')
   const [clips, setClips] = useState(5)
+  const [captions, setCaptions] = useState('on')
+  const [category, setCategory] = useState('viral')
   const [jobs, setJobs] = useState(readHistory)
   const [error, setError] = useState('')
   const [connecting, setConnecting] = useState(false)
@@ -54,10 +56,10 @@ export default function App() {
     try {
       const job = await createJob({
         url: url.trim(), source: 'youtube', clips, ratio: '9:16', source_height: '1080', render_height: '1080',
-        min_clip_seconds: 30, max_clip_seconds: 75,
+        min_clip_seconds: 30, max_clip_seconds: 75, clip_category: category,
         font_style: 'HORMOZI', ai_provider: 'gemini', gemini_model: 'gemini-3-flash-preview', face_detector: 'mediapipe',
-        use_dlp_subs: true, whisper_model: 'large-v3', whisper_device: 'cuda', use_karaoke_effect: true,
-        use_broll: false, use_hook_glitch: false, use_auto_bgm: false, use_split_screen: false, use_camera_switch: false, no_subs: false,
+        use_dlp_subs: true, whisper_model: 'large-v3', whisper_device: 'cuda', use_karaoke_effect: captions === 'on',
+        use_broll: false, use_hook_glitch: false, use_auto_bgm: false, use_split_screen: false, use_camera_switch: false, no_subs: captions === 'off',
       })
       setJobs((current) => [{ ...job, savedAt: new Date().toISOString() }, ...current.filter((item) => item.id !== job.id)])
       setUrl('')
@@ -68,7 +70,7 @@ export default function App() {
     <header className="topbar"><a className="brand" href="."><span className="brand-mark">C</span><span>Clip Studio</span></a><button className={`connection ${health ? 'online' : ''}`} onClick={() => setShowConnect(true)}><i />{health ? 'Notebook connected' : 'Connect notebook'}</button></header>
     <section className="hero"><p className="eyebrow">PERSONAL CREATOR WORKSPACE</p><h1>Turn long videos into<br /><em>short-form clips.</em></h1><p className="lede">Paste a YouTube link. Your private GPU notebook finds the best moments, frames them for vertical, and returns downloads ready for posting.</p></section>
     <section className="workspace">
-      <form className="create-card" onSubmit={startJob}><label htmlFor="youtube-url">YouTube video link</label><div className="url-row"><span className="link-icon">↗</span><input id="youtube-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/watch?v=..." inputMode="url" /><button className="primary" disabled={submitting || !health}>{submitting ? 'Starting...' : 'Create clips'}</button></div><p className="source-note">For videos you own or are authorized to repurpose. Facebook support is intentionally not included in this first release.</p><div className="settings-row"><div><span>OUTPUT</span><strong>9:16 · 1080p</strong></div><label className="compact-field"><span>CLIPS</span><select value={clips} onChange={(event) => setClips(Number(event.target.value))}><option value="3">3 clips</option><option value="4">4 clips</option><option value="5">5 clips</option></select></label><div><span>LENGTH</span><strong>30–75 sec</strong></div><div><span>CAPTIONS</span><strong>Karaoke · auto</strong></div><div><span>PRESET</span><strong>Balanced</strong></div></div></form>
+      <form className="create-card" onSubmit={startJob}><label htmlFor="youtube-url">YouTube video link</label><div className="url-row"><span className="link-icon">↗</span><input id="youtube-url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/watch?v=..." inputMode="url" /><button className="primary" disabled={submitting || !health}>{submitting ? 'Starting...' : 'Create clips'}</button></div><p className="source-note">For videos you own or are authorized to repurpose. Facebook support is intentionally not included in this first release.</p><div className="settings-row"><div><span>OUTPUT</span><strong>9:16 · 1080p</strong></div><label className="compact-field"><span>CLIPS</span><select value={clips} onChange={(event) => setClips(Number(event.target.value))}><option value="3">3 clips</option><option value="4">4 clips</option><option value="5">5 clips</option></select></label><div><span>LENGTH</span><strong>30–75 sec</strong></div><div><span>PRESET</span><strong>Balanced</strong></div></div><div className="creator-controls"><label className="compact-field"><span>CAPTIONS</span><select value={captions} onChange={(event) => setCaptions(event.target.value)}><option value="on">On · karaoke</option><option value="off">Off · clean video</option></select></label><label className="compact-field"><span>CLIP STYLE</span><select value={category} onChange={(event) => setCategory(event.target.value)}><option value="viral">Viral / engaging</option><option value="funny">Funny / entertaining</option><option value="serious">Serious / emotional</option><option value="educational">Educational / insights</option></select></label></div></form>
       {error && <div className="notice error"><b>Couldn't continue.</b> {error}</div>}
       {activeJob && <ProgressCard job={activeJob} onRefresh={() => refreshJob(activeJob.id)} />}
       <Jobs jobs={jobs} onRefresh={refreshJob} />

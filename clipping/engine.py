@@ -165,6 +165,9 @@ def download_video(
             "quiet": True,
             "merge_output_format": "mp4",
             "remote_components": ["ejs:github"],
+            # YouTube now presents JavaScript challenges. Deno is preferred;
+            # Node is enabled as a fallback for notebook images without Deno.
+            "js_runtimes": {"deno": {"path": None}, "node": {"path": None}},
             "progress_hooks": [_ydl_progress_hook],
             "extractor_args": {"youtube": ["player_client=android,web"]},
         }

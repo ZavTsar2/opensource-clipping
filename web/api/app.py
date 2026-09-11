@@ -33,6 +33,14 @@ def require_api_token(authorization: str | None = Header(default=None)) -> None:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing studio token.")
     supplied = authorization.removeprefix("Bearer ").strip()
+    try:
+        expected.encode("ascii")
+        supplied.encode("ascii")
+    except UnicodeEncodeError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CLIP_STUDIO_TOKEN must contain only standard English letters, numbers, hyphens, or underscores.",
+        )
     if not hmac.compare_digest(supplied, expected):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid studio token.")
 

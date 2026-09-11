@@ -74,9 +74,18 @@ export async function fetchHealth() {
   return res.json()
 }
 
-export async function fetchMedia(path) {
+export async function fetchMedia(path, onProgress) {
   const response = await request(normalizeMediaPath(path))
-  return URL.createObjectURL(await response.blob())
+  const total = Number(response.headers.get('content-length')) || 0
+  if (!response.body) return URL.createObjectURL(await response.blob())
+  const reader = response.body.getReader(); const chunks = []; let received = 0
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value); received += value.length
+    onProgress?.(total ? Math.round((received / total) * 100) : null)
+  }
+  return URL.createObjectURL(new Blob(chunks, { type: response.headers.get('content-type') || 'application/octet-stream' }))
 }
 
 function normalizeMediaPath(path) {

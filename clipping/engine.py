@@ -565,6 +565,12 @@ MAX_CLIP_DURATION = 179
 
 def get_analysis_prompt(transkrip_lengkap: str, jumlah_clip: int, durasi_hook: int, cfg=None) -> str:
     """Centralized prompt for both Gemini and NVIDIA providers."""
+    # CLI behaviour remains unchanged; the personal API can request a more
+    # practical Shorts range without changing the upstream command defaults.
+    min_clip_duration = int(getattr(cfg, "min_clip_seconds", MIN_CLIP_DURATION)) if cfg else MIN_CLIP_DURATION
+    max_clip_duration = int(getattr(cfg, "max_clip_seconds", MAX_CLIP_DURATION)) if cfg else MAX_CLIP_DURATION
+    if max_clip_duration < min_clip_duration:
+        max_clip_duration = min_clip_duration
     # Build optional Hook V2 prompt section
     _hook_v2_prompt = ""
     if cfg and getattr(cfg, "hook_v2", False):
@@ -613,14 +619,14 @@ TUGAS UTAMA:
 - Semua output harus sangat relevan dengan isi klip, bukan isi video penuh secara umum.
 
 ATURAN PEMILIHAN KLIP & VIRAL-BILITY:
-- Durasi klip harus {MIN_CLIP_DURATION}-{MAX_CLIP_DURATION} detik.
+- Durasi klip harus {min_clip_duration}-{max_clip_duration} detik. Jangan pernah memilih klip lebih pendek dari {min_clip_duration} detik.
 - Pilih bagian yang punya emosi, konflik, kejutan, insight, opini kuat, pelajaran praktis, atau punchline jelas.
 - Evaluasi kekuatan viral (viral-bility) dan berikan "viral_score" (1-100) yang merepresentasikan seberapa viral suatu klip.
   - 90-100: Sangat berpotensi fyp/viral, emosi/konflik kuat, hook sangat nendang.
   - 80-89: Menarik, berpotensi performa baik.
   - 70-79: Standar, informatif tapi mungkin kurang greget.
 - Utamakan bagian yang tetap menarik walau ditonton tanpa konteks video penuh.
-- Hindari klip yang isinya terlalu mirip satu sama lain.
+- Semua klip harus benar-benar unik. Jangan gunakan momen yang sama untuk dua klip dan jangan buat dua klip dengan overlap lebih dari 20% dari durasi klip yang lebih pendek.
 - Jangan pilih klip yang terasa datar, bertele-tele, atau tidak punya payoff yang jelas.
 
 ATURAN RETENTION & STRUKTUR KLIP:
@@ -645,7 +651,7 @@ ATURAN PEMOTONGAN TIMING:
 - Jangan potong terlalu awal jika kalimat masih menggantung.
 - Jangan lanjutkan klip terlalu lama setelah inti pesan selesai.
 - Klip harus tetap bisa dipahami tanpa harus menonton bagian sebelum atau sesudahnya.
-- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, boleh digabung selama durasi tetap {MIN_CLIP_DURATION}-{MAX_CLIP_DURATION} detik.
+- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, gabungkan menjadi satu klip selama durasi tetap {min_clip_duration}-{max_clip_duration} detik.
 - Jika ada dua momen kuat tetapi angle-nya berbeda, pisahkan sebagai kandidat klip berbeda.
 
 PENILAIAN INTERNAL VIRAL_SCORE:

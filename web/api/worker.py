@@ -39,6 +39,40 @@ def get_settings_env() -> dict[str, str]:
     return dict(_settings_env)
 
 
+def _validate_clip_selections(clips: list[dict], *, expected: int, minimum_seconds: int) -> None:
+    """Stop bad AI selections before they consume GPU rendering time.
+
+    Titles are generated independently from timing, so a plausible title is not
+    proof that the selected footage is unique.  We deliberately fail early when
+    the model returns short or substantially overlapping source ranges.
+    """
+    if len(clips) != expected:
+        raise ValueError(f"AI returned {len(clips)} clips; {expected} distinct clips were requested.")
+
+    ranges: list[tuple[float, float]] = []
+    for index, clip in enumerate(clips, start=1):
+        try:
+            start = float(clip["start_time"])
+            end = float(clip["end_time"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(f"Clip {index} has invalid timing from AI.") from exc
+        duration = end - start
+        if duration < minimum_seconds:
+            raise ValueError(
+                f"AI proposed clip {index} at only {duration:.0f}s; the studio requires at least {minimum_seconds}s."
+            )
+        ranges.append((start, end))
+
+    for left_index, (left_start, left_end) in enumerate(ranges):
+        for right_index, (right_start, right_end) in enumerate(ranges[left_index + 1 :], start=left_index + 2):
+            overlap = max(0.0, min(left_end, right_end) - max(left_start, right_start))
+            shorter = min(left_end - left_start, right_end - right_start)
+            if shorter and overlap / shorter > 0.20:
+                raise ValueError(
+                    f"AI selected overlapping footage for clips {left_index + 1} and {right_index}; no render was started."
+                )
+
+
 def _run_pipeline_sync(job_id: str, payload: dict) -> None:
     """
     Run the clipping pipeline synchronously (called from thread pool).
@@ -200,6 +234,11 @@ def _run_pipeline_sync(job_id: str, payload: dict) -> None:
         from clipping import metadata
 
         hasil_json = metadata.normalize_and_validate(hasil_json)
+        _validate_clip_selections(
+            hasil_json,
+            expected=int(cfg.jumlah_clip),
+            minimum_seconds=int(getattr(cfg, "min_clip_seconds", 30)),
+        )
         metadata_path = os.path.join(cfg.outputs_dir, "metadata_preview.json")
         metadata.save_metadata_preview(hasil_json, path=metadata_path)
 

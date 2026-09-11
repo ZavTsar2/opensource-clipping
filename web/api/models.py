@@ -82,6 +82,8 @@ class JobCreateRequest(BaseModel):
     ratio: AspectRatio = Field(AspectRatio.RATIO_9_16, description="Output aspect ratio")
     source_height: str = Field("max", description="Source download max height")
     render_height: str = Field("1080", description="Target output height")
+    min_clip_seconds: int = Field(30, ge=10, le=120, description="Minimum finished clip duration")
+    max_clip_seconds: int = Field(75, ge=15, le=180, description="Maximum finished clip duration")
 
     # Content & Hook
     words_per_sub: int = Field(5, ge=1, le=15)

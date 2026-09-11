@@ -183,6 +183,12 @@ def download_video(
             "progress_hooks": [_ydl_progress_hook],
         }
 
+    # --- Optional cookies support (fixes "Sign in to confirm you're not a bot") ---
+    cookies_path = os.environ.get("YTDLP_COOKIES_FILE", "/kaggle/working/cookies.txt")
+    if os.path.exists(cookies_path):
+        ydl_opts["cookiefile"] = cookies_path
+        print(f"      🍪 Using cookies file: {cookies_path}", flush=True)
+        
     # --- Subtitle download — only supported for YouTube ---
     if use_dlp_subs and uses_youtube_format:
         print("      Mencoba mencari subtitle bahasa otomatis (en / id)...")

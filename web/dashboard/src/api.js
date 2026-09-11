@@ -27,10 +27,15 @@ function headers(extra = {}) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${apiBase()}${path}`, {
-    ...options,
-    headers: headers(options.headers),
-  })
+  let response
+  try {
+    response = await fetch(`${apiBase()}${path}`, {
+      ...options,
+      headers: headers(options.headers),
+    })
+  } catch {
+    throw new Error('Could not reach the notebook. Start its Kaggle API/tunnel cell again, then paste the new tunnel URL here.')
+  }
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
     const message = new Error(error.detail || friendlyError(response.status))

@@ -153,6 +153,7 @@ class ClipDetail(BaseModel):
     duration: Optional[float] = None
     start_time: Optional[float] = None
     end_time: Optional[float] = None
+    preview_url: Optional[str] = None
     download_url: str
     thumbnail_url: Optional[str] = None
     metadata: dict = Field(default_factory=dict)

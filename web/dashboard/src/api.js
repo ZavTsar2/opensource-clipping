@@ -17,6 +17,10 @@ function apiBase() {
   return `${url.replace(/\/$/, '')}/api`
 }
 
+export function isDirectMediaUrl(path) {
+  try { return new URL(path).hostname.endsWith('.r2.cloudflarestorage.com') } catch { return false }
+}
+
 function headers(extra = {}) {
   const { token } = getConnection()
   return {

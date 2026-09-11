@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createJob, fetchHealth, fetchJob, fetchMedia, getConnection, saveConnection } from './api'
+import { createJob, fetchHealth, fetchJob, fetchMedia, getConnection, isDirectMediaUrl, saveConnection } from './api'
 
 const HISTORY_KEY = 'clip-studio-history'
 const ACTIVE_STATES = new Set(['queued', 'downloading', 'transcribing', 'analyzing', 'rendering'])
@@ -110,7 +110,7 @@ function JobCard({ job, onRefresh, refreshing }) {
   useEffect(() => {
     let cancelled = false
     for (const clip of job.clips || []) {
-      if (!clip.thumbnail_url) continue
+      if (!clip.thumbnail_url || isDirectMediaUrl(clip.thumbnail_url)) continue
       fetchMedia(clip.thumbnail_url).then((thumbnail) => {
         if (!cancelled) setThumbnails((current) => ({ ...current, [clip.filename]: thumbnail }))
       }).catch(() => {})
@@ -118,16 +118,21 @@ function JobCard({ job, onRefresh, refreshing }) {
     return () => { cancelled = true }
   }, [job.id])
   async function loadClip(clip) {
+    const source = clip.preview_url || clip.download_url
+    if (isDirectMediaUrl(source)) return source
     if (media[clip.filename]) return media[clip.filename]
     if (loading[clip.filename]) return null
     setLoading((current) => ({ ...current, [clip.filename]: { action: 'preview', progress: 0 } }))
     try {
-      const mediaUrl = await fetchMedia(clip.download_url, (progress) => setLoading((current) => ({ ...current, [clip.filename]: { action: 'preview', progress } })))
+      const mediaUrl = await fetchMedia(source, (progress) => setLoading((current) => ({ ...current, [clip.filename]: { action: 'preview', progress } })))
       setMedia((current) => ({ ...current, [clip.filename]: mediaUrl }))
       return mediaUrl
     } catch (err) { setMediaError(err.message); return null } finally { setLoading((current) => { const next = { ...current }; delete next[clip.filename]; return next }) }
   }
   async function downloadClip(clip) {
+    if (isDirectMediaUrl(clip.download_url)) {
+      const link = document.createElement('a'); link.href = clip.download_url; link.click(); return
+    }
     let mediaUrl = media[clip.filename]
     if (!mediaUrl) {
       setLoading((current) => ({ ...current, [clip.filename]: { action: 'download', progress: 0 } }))
@@ -138,7 +143,7 @@ function JobCard({ job, onRefresh, refreshing }) {
     }
     const link = document.createElement('a'); link.href = mediaUrl; link.download = clip.filename; link.click()
   }
-  return <article className="job-card"><div className="job-top"><div><span className={`status ${job.status}`}>{job.status || 'saved'}</span><h3>{job.url || 'Previous clip job'}</h3></div><button className="text-button" onClick={() => onRefresh(job.id)}>Refresh</button></div>{job.error && <p className="job-error">{job.error}</p>}{job.status === 'completed' && <div className="clip-grid">{(job.clips || []).map((clip) => { const state = loading[clip.filename]; return <div className="clip" key={clip.filename}><div className="clip-preview">{media[clip.filename] ? <video src={media[clip.filename]} controls preload="metadata" /> : <><>{thumbnails[clip.filename] && <img src={thumbnails[clip.filename]} alt="Clip preview" />}</><button onClick={() => loadClip(clip)} disabled={Boolean(state)}>{state?.action === 'preview' ? `Loading${state.progress ? ` ${state.progress}%` : '...'}` : 'Load preview'}</button></>}</div><div><b>#{clip.rank} {clip.title || clip.title_en || 'Clip'}</b><span>{clip.duration ? `${Math.round(clip.duration)} sec` : 'Ready'}{typeof clip.start_time === 'number' && typeof clip.end_time === 'number' ? ` · ${formatTimestamp(clip.start_time)}–${formatTimestamp(clip.end_time)}` : ''}{clip.viral_score ? ` · Score ${clip.viral_score}` : ''}</span><button className="text-button" onClick={() => downloadClip(clip)} disabled={Boolean(state)}>{state?.action === 'download' ? `Downloading${state.progress ? ` ${state.progress}%` : '...'}` : 'Download MP4'}</button></div></div>})}</div>}{mediaError && <p className="job-error">{mediaError}</p>}</article>
+  return <article className="job-card"><div className="job-top"><div><span className={`status ${job.status}`}>{job.status || 'saved'}</span><h3>{job.url || 'Previous clip job'}</h3></div><button className="text-button" onClick={() => onRefresh(job.id)}>Refresh</button></div>{job.error && <p className="job-error">{job.error}</p>}{job.status === 'completed' && <div className="clip-grid">{(job.clips || []).map((clip) => { const state = loading[clip.filename]; const directPreview = isDirectMediaUrl(clip.preview_url || clip.download_url) ? (clip.preview_url || clip.download_url) : null; const previewUrl = media[clip.filename] || directPreview; const thumbnailUrl = isDirectMediaUrl(clip.thumbnail_url) ? clip.thumbnail_url : thumbnails[clip.filename]; return <div className="clip" key={clip.filename}><div className="clip-preview">{previewUrl ? <video src={previewUrl} poster={thumbnailUrl} controls preload="metadata" /> : <><>{thumbnailUrl && <img src={thumbnailUrl} alt="Clip preview" />}</><button onClick={() => loadClip(clip)} disabled={Boolean(state)}>{state?.action === 'preview' ? `Loading${state.progress ? ` ${state.progress}%` : '...'}` : 'Load preview'}</button></>}</div><div><b>#{clip.rank} {clip.title || clip.title_en || 'Clip'}</b><span>{clip.duration ? `${Math.round(clip.duration)} sec` : 'Ready'}{typeof clip.start_time === 'number' && typeof clip.end_time === 'number' ? ` · ${formatTimestamp(clip.start_time)}–${formatTimestamp(clip.end_time)}` : ''}{clip.viral_score ? ` · Score ${clip.viral_score}` : ''}</span><button className="text-button" onClick={() => downloadClip(clip)} disabled={Boolean(state)}>{state?.action === 'download' ? `Downloading${state.progress ? ` ${state.progress}%` : '...'}` : 'Download MP4'}</button></div></div>})}</div>}{mediaError && <p className="job-error">{mediaError}</p>}</article>
 }
 
 function stageName(status) { return ({ queued: 'Queued for processing', downloading: 'Downloading source', transcribing: 'Preparing captions', analyzing: 'Finding strong moments', rendering: 'Rendering your clips' })[status] || 'Working on your clips' }

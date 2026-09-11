@@ -6,6 +6,7 @@ mediapipe
 opencv-python
 Pillow
 requests
+boto3
 python-dotenv
 google-api-python-client
 google-auth

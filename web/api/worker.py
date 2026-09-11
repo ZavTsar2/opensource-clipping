@@ -375,10 +375,40 @@ def _run_pipeline_sync(job_id: str, payload: dict) -> None:
 
         # --- Build clip details for the job store ---
         clips: list[ClipDetail] = []
+        from . import r2_storage
+
+        use_r2 = r2_storage.is_configured()
+        if use_r2:
+            store.update_progress(
+                job_id,
+                step="upload",
+                step_number=7,
+                total_steps=7,
+                message="Uploading finished clips for fast preview...",
+                percent=96.0,
+            )
         for entry in render_manifest:
             filename = os.path.basename(entry.get("output_file") or entry.get("video_path") or "")
             thumbnail_path = entry.get("thumbnail_path") or ""
             thumbnail_filename = os.path.basename(thumbnail_path)
+            local_video_path = entry.get("output_file") or entry.get("video_path") or ""
+            download_url = f"/api/outputs/{job_id}/{filename}"
+            preview_url = download_url
+            thumbnail_url = (
+                f"/api/outputs/{job_id}/{thumbnail_filename}"
+                if thumbnail_filename and os.path.exists(thumbnail_path)
+                else None
+            )
+            if use_r2:
+                try:
+                    preview_url, download_url, thumbnail_url = r2_storage.publish_clip(
+                        job_id,
+                        video_path=local_video_path,
+                        thumbnail_path=thumbnail_path or None,
+                    )
+                except Exception as exc:
+                    # The clip remains available through the notebook tunnel if R2 is unavailable.
+                    print(f"[R2] Upload failed for {filename}; using notebook delivery: {exc}")
             clips.append(
                 ClipDetail(
                     rank=entry.get("rank", 0),
@@ -389,12 +419,9 @@ def _run_pipeline_sync(job_id: str, payload: dict) -> None:
                     duration=entry.get("duration"),
                     start_time=entry.get("start_time"),
                     end_time=entry.get("end_time"),
-                    download_url=f"/api/outputs/{job_id}/{filename}",
-                    thumbnail_url=(
-                        f"/api/outputs/{job_id}/{thumbnail_filename}"
-                        if thumbnail_filename and os.path.exists(thumbnail_path)
-                        else None
-                    ),
+                    preview_url=preview_url,
+                    download_url=download_url,
+                    thumbnail_url=thumbnail_url,
                     metadata=entry,
                 )
             )

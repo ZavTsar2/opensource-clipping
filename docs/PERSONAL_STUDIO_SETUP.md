@@ -31,6 +31,10 @@ The workflow builds with the repository-name base path, so it works for a fork w
 3. Select 3, 4, or 5 clips, paste a YouTube link you own or are authorized to repurpose, then select **Create clips**.
 4. The site polls the notebook until it finishes. Use **Load preview** and **Download MP4** for each result.
 
+## Optional: fast private R2 delivery
+
+Add `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_ENDPOINT`, and `R2_BUCKET` as Kaggle secrets. The notebook uploads each finished MP4 and thumbnail to the private bucket, then returns one-hour presigned preview and download URLs. Do not add these values to the website.
+
 The browser retains connection information and recent job metadata only in `localStorage`. The actual video files remain in the temporary notebook runtime, so download them before that session ends.
 
 ## Defaults chosen to control cost

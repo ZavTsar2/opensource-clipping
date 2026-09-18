@@ -150,6 +150,8 @@ def build_config_from_payload(
         hook_window=payload.get("hook_window", 3.0),
         refine_hook_timestamps=payload.get("refine_hook_timestamps", True),
         crop_mode=payload.get("crop_mode", "face"),
+        quality_gate=payload.get("quality_gate", True),
+        min_quality_score=payload.get("min_quality_score", 65.0),
         # Hook V2 & Segment Trimming
         hook_v2=payload.get("hook_v2", False),
         hook_v2_items=payload.get("hook_v2_items", 3),

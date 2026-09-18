@@ -319,6 +319,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p.set_defaults(refine_hook_timestamps=True)
     p.add_argument("--crop-mode", choices=["face", "reaction_split"], default="face",
                    help="reaction_split uses vertical split framing to preserve reaction-side content.")
+    p.add_argument("--min-quality-score", type=float, default=65.0,
+                   help="Minimum 0-100 quality-gate score before rendering; best candidate is retained if none qualify.")
+    p.add_argument("--no-quality-gate", dest="quality_gate", action="store_false",
+                   help="Skip local scene/boundary reranking and use AI score only.")
+    p.set_defaults(quality_gate=True)
     p.add_argument(
         "--hook-source",
         default=None,
@@ -919,6 +924,8 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         hook_window=args.hook_window,
         refine_hook_timestamps=args.refine_hook_timestamps,
         crop_mode=args.crop_mode,
+        quality_gate=args.quality_gate,
+        min_quality_score=args.min_quality_score,
         # Hook V2 & Segment Trimming
         hook_v2=args.hook_v2,
         hook_v2_items=args.hook_v2_items,

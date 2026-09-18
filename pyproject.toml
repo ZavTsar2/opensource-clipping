@@ -19,6 +19,7 @@ dependencies = [
     "google-auth-httplib2",
     "ultralytics",
     "gdown",
+    "scenedetect>=0.6,<0.8",
 ]
 
 [project.scripts]

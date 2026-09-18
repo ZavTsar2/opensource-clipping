@@ -41,6 +41,8 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 | `--hook-window` | `3.0` | Local audio/motion search window around each AI clip start |
 | `--no-hook-refinement` | `False` | Preserve exact AI timestamps; default records original and corrected starts in metadata |
 | `--crop-mode reaction_split` | `face` | Use vertical split framing for reaction or screen-recording sources |
+| `--min-quality-score` | `65` | Quality-gate threshold using AI score, scene stability, and caption boundaries |
+| `--no-quality-gate` | `False` | Skip the local scene/boundary reranking step |
 | `--hook-source` | `None` | Path or URL for custom hook video (.mp4) |
 | `--hook-source-start` | `0.0` | Start time in seconds for custom hook |
 | `--no-broll` | — | Disable B-roll footage |

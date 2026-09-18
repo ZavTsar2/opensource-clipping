@@ -9,7 +9,7 @@ import json
 import os
 
 from . import diarization as diarization_mod
-from . import engine, hook_refinement, metadata, studio, hook_manager, voiceover
+from . import engine, hook_refinement, metadata, quality_gate, studio, hook_manager, voiceover
 
 
 def run_pipeline(cfg) -> list[dict]:
@@ -117,6 +117,10 @@ def run_pipeline(cfg) -> list[dict]:
     hasil_json = metadata.normalize_and_validate(hasil_json)
     if getattr(cfg, "refine_hook_timestamps", True):
         hook_refinement.refine_clip_starts(hasil_json, cfg.file_video_asli, float(getattr(cfg, "hook_window", 3.0)))
+    if getattr(cfg, "quality_gate", True):
+        hasil_json = quality_gate.score_candidates(
+            hasil_json, cfg.file_video_asli, data_segmen, float(getattr(cfg, "min_quality_score", 65.0))
+        )
     selected_ranks = getattr(cfg, "render_preview_ids", None)
     if selected_ranks:
         hasil_json = [clip for clip in hasil_json if int(clip.get("rank", -1)) in selected_ranks]

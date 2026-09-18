@@ -21,3 +21,4 @@ uvicorn
 python-multipart
 pydantic
 edge-tts
+scenedetect>=0.6,<0.8

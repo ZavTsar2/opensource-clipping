@@ -9,7 +9,9 @@ export function getConnection() {
 }
 
 export function saveConnection(connection) {
-  localStorage.setItem(CONNECTION_KEY, JSON.stringify(connection))
+  // Safari private browsing can reject storage writes. The current browser
+  // session can still use the connection even when persistence is unavailable.
+  try { localStorage.setItem(CONNECTION_KEY, JSON.stringify(connection)) } catch {}
 }
 
 function apiBase() {

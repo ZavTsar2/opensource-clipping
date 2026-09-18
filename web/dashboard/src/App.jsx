@@ -4,7 +4,7 @@ import { createJob, fetchHealth, fetchJob, fetchMedia, getConnection, isDirectMe
 const HISTORY_KEY = 'clip-studio-history'
 const ACTIVE_STATES = new Set(['queued', 'downloading', 'transcribing', 'analyzing', 'rendering'])
 let advancedOptions = { preset: 'balanced', fontStyle: 'HORMOZI', bgmGenre: 'none', voiceover: 'none', voice: 'en-US-JennyNeural' }
-const readHistory = () => { try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || [] } catch { return [] } }
+const readHistory = () => { try { const value = JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; return Array.isArray(value) ? value : [] } catch { return [] } }
 
 export default function App() {
   const [connection, setConnection] = useState(getConnection), [draft, setDraft] = useState(getConnection)
@@ -15,7 +15,7 @@ export default function App() {
   const [jobs, setJobs] = useState(readHistory), [error, setError] = useState('')
   const [connecting, setConnecting] = useState(false), [submitting, setSubmitting] = useState(false), [refreshingId, setRefreshingId] = useState('')
   const activeJob = useMemo(() => jobs.find((job) => ACTIVE_STATES.has(job.status)), [jobs])
-  useEffect(() => { localStorage.setItem(HISTORY_KEY, JSON.stringify(jobs.slice(0, 12))) }, [jobs])
+  useEffect(() => { try { localStorage.setItem(HISTORY_KEY, JSON.stringify(jobs.slice(0, 12))) } catch {} }, [jobs])
   useEffect(() => { if (connection.url && connection.token) testConnection(connection) }, [])
   useEffect(() => { if (!activeJob || !connection.url) return; const timer = setInterval(() => refreshJob(activeJob.id, false), 1500); return () => clearInterval(timer) }, [activeJob?.id, connection.url])
   async function testConnection(candidate = draft) { const normalized = { url: candidate.url.trim().replace(/\/$/, ''), token: candidate.token.trim() }; if (!normalized.url || !normalized.token) return setError('Paste the notebook tunnel URL and personal token.'); setConnecting(true); setError(''); saveConnection(normalized); try { const result = await fetchHealth(); setConnection(normalized); setDraft(normalized); setHealth(result); setShowConnect(false) } catch (err) { setHealth(null); setError(err.message) } finally { setConnecting(false) } }

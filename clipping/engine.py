@@ -27,7 +27,14 @@ def _build_ydl_format_selector(download_source_height: str | int) -> str:
     codec_filter = "[vcodec!*=av01]"
 
     if download_source_height == "max":
-        return f"bestvideo{codec_filter}+bestaudio/best{codec_filter}"
+        # Prefer a directly muxable H.264/AAC MP4 even at "max".  Selecting
+        # VP9/Opus WebM and then forcing an MP4 container is the common cause
+        # of yt-dlp's opaque "Postprocessing: Conversion failed" on notebooks.
+        return (
+            f"bestvideo[ext=mp4][vcodec^=avc1]{codec_filter}+bestaudio[ext=m4a]/"
+            f"best[ext=mp4][vcodec^=avc1]{codec_filter}/"
+            f"best[ext=mp4]{codec_filter}"
+        )
 
     try:
         h_val = int(download_source_height)

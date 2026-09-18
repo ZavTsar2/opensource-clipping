@@ -174,6 +174,8 @@ def get_commentary_prompt(transcript_snippet: str, style: str, language: str, le
         "reaction": "Berikan reaksi natural seolah kamu sedang menonton momen ini dan terkesan/terkejut.",
         "lesson": "Tarik satu pelajaran atau 'moral of the story' yang bisa diaplikasikan penonton dari momen ini.",
         "summary": "Berikan konteks atau ringkasan singkat tapi memikat tentang apa yang terjadi di momen ini."
+        ,"viral_hook": "Mulai dengan hook kuat dalam 1-2 detik, bangun rasa penasaran, lalu akhiri tepat pada payoff atau open loop yang natural."
+        ,"storytelling": "Ceritakan momen sebagai cerita mini: hook, konteks singkat, ketegangan, lalu payoff yang memuaskan."
     }
     
     if language == "en":
@@ -182,6 +184,8 @@ def get_commentary_prompt(transcript_snippet: str, style: str, language: str, le
             "reaction": "Provide a natural reaction as if you are watching this moment and are impressed/surprised.",
             "lesson": "Extract one key lesson or takeaway that the audience can apply from this moment.",
             "summary": "Provide a catchy but brief context or summary of what's happening in this moment."
+            ,"viral_hook": "Open with a strong hook in the first 1-2 seconds, build curiosity, then land on a payoff or natural open loop."
+            ,"storytelling": "Tell the moment as a mini story: hook, concise context, tension, then a satisfying payoff."
         }
         
     chosen_style = style_instructions.get(style, style_instructions["analysis"])

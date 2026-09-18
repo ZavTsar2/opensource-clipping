@@ -132,6 +132,9 @@ def build_config_from_payload(
         source_platform=source_platform,
         url_youtube=payload.get("url"),
         jumlah_clip=payload.get("clips", 7),
+        clip_count_auto=payload.get("clips") == "auto",
+        auto_clip_min=1,
+        auto_clip_max=12,
         # The personal studio favours usable Shorts over tiny teaser fragments.
         min_clip_seconds=payload.get("min_clip_seconds", 30),
         max_clip_seconds=payload.get("max_clip_seconds", 75),
@@ -188,11 +191,14 @@ def build_config_from_payload(
         url_mediapipe_model=URL_MEDIAPIPE_MODEL,
         # BGM
         bgm_base_volume=BGM_BASE_VOLUME,
-        bgm_mode=BGM_MODE,
+        bgm_mode=payload.get("bgm_mode", BGM_MODE),
+        bgm_genre=payload.get("bgm_genre"),
+        bgm_track=payload.get("bgm_track"),
         bgm_moods=BGM_MOODS,
         bgm_dir=BGM_DIR,
         # Whisper
         use_dlp_subs=payload.get("use_dlp_subs", False),
+        caption_lang=payload.get("caption_lang", "auto"),
         whisper_model=payload.get("whisper_model", "large-v3"),
         whisper_device=payload.get("whisper_device", "cuda"),
         whisper_compute_type=payload.get("whisper_compute_type", "float16"),
@@ -209,6 +215,7 @@ def build_config_from_payload(
         track_smooth=None,
         track_jitter=None,
         track_snap=None,
+        lock_primary_subject=payload.get("lock_primary_subject", True),
         track_conf=0.55,
         track_smooth_window=12,
         scene_cut_threshold=18,
@@ -231,6 +238,16 @@ def build_config_from_payload(
         sources_json_path=None,
         story_output_dir=None,
         skip_download=False,
+        # Voice-over (free Edge-TTS; off unless explicitly selected)
+        voiceover=payload.get("voiceover", "none"),
+        voiceover_voice=payload.get("voiceover_voice", "en-US-JennyNeural"),
+        voiceover_lang=("en" if payload.get("voiceover_lang", "auto") == "auto" else payload.get("voiceover_lang")),
+        voiceover_style=payload.get("voiceover_style", "analysis"),
+        voiceover_length="short",
+        voiceover_volume=1.0,
+        original_volume=0.15,
+        edge_glow=False,
+        edge_glow_mode="smooth",
     )
 
     return cfg

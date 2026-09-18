@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +46,9 @@ class FontStyle(str, enum.Enum):
     STORYTELLER = "STORYTELLER"
     HORMOZI = "HORMOZI"
     CINEMATIC = "CINEMATIC"
+    BOLD_POP = "BOLD_POP"
+    MINIMAL_CLEAN = "MINIMAL_CLEAN"
+    NEON_PULSE = "NEON_PULSE"
 
 
 class FaceDetector(str, enum.Enum):
@@ -85,7 +88,7 @@ class JobCreateRequest(BaseModel):
     reuse_job_id: Optional[str] = Field(None, description="Existing Job ID to reuse its downloads and JSON")
 
     # Main settings
-    clips: int = Field(7, ge=1, le=30, description="Number of clips to generate")
+    clips: int | Literal["auto"] = Field(7, description="Number of clips (1-20), or auto")
     ratio: AspectRatio = Field(AspectRatio.RATIO_9_16, description="Output aspect ratio")
     source_height: str = Field("max", description="Source download max height")
     render_height: str = Field("1080", description="Target output height")
@@ -118,6 +121,15 @@ class JobCreateRequest(BaseModel):
     whisper_device: WhisperDevice = WhisperDevice.CUDA
     whisper_compute_type: str = "float16"
     use_dlp_subs: bool = False
+    caption_lang: Literal["auto", "en"] = "auto"
+    bgm_mode: Literal["ducking", "background"] = "ducking"
+    bgm_genre: Optional[Literal["chill", "epic", "sad", "upbeat", "suspense"]] = None
+    bgm_track: Optional[str] = None
+    voiceover: Literal["none", "tts-dub"] = "none"
+    voiceover_voice: str = "en-US-JennyNeural"
+    voiceover_lang: Literal["auto", "en", "id"] = "auto"
+    voiceover_style: Literal["analysis", "reaction", "lesson", "summary", "viral_hook", "storytelling"] = "analysis"
+    lock_primary_subject: bool = True
 
     # AI
     ai_provider: AIProvider = AIProvider.GEMINI

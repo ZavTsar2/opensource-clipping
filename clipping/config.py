@@ -55,7 +55,7 @@ PRESET_DEFAULTS = {
     "clean_minimal": {"clips": 5, "font_style": "MINIMAL_CLEAN", "no_broll": True, "no_hook": True, "no_karaoke": True},
     # Deliberately conservative and repeatable: stable model, sentence-aware
     # trimming, no hyperactive hook montage, and a sensible Shorts range.
-    "balanced": {"clips": 5, "ratio": "9:16", "font_style": "HORMOZI", "silence_trim": True,
+    "balanced": {"clips": 5, "ratio": "9:16", "font_style": "HORMOZI", "silence_trim": True, "lock_primary_subject": True,
                  "min_clip_duration": 15, "max_clip_duration": 60, "gemini_model": "gemini-2.5-flash"},
 }
 
@@ -560,6 +560,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Face jump snap threshold (default: 0.25)",
     )
+    p.add_argument("--lock-primary-subject", action="store_true", help="Keep the initial main subject framed instead of jumping between visible faces.")
     p.add_argument(
         "--track-conf",
         type=float,
@@ -710,7 +711,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     vo_group.add_argument(
         "--voiceover-style",
-        choices=["analysis", "reaction", "lesson", "summary"],
+        choices=["analysis", "reaction", "lesson", "summary", "viral_hook", "storytelling"],
         default="analysis",
         help="Style of the generated commentary.",
     )
@@ -978,6 +979,7 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         track_smooth=args.track_smooth,
         track_jitter=args.track_jitter,
         track_snap=args.track_snap,
+        lock_primary_subject=args.lock_primary_subject,
         track_conf=args.track_conf,
         track_smooth_window=args.track_smooth_window,
         scene_cut_threshold=args.scene_cut_threshold,

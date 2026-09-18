@@ -187,6 +187,10 @@ def buat_video_hybrid(
                 boxes = yolo_results[0].boxes.xyxy.cpu().numpy()
                 areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
                 largest_idx = areas.argmax()
+                if getattr(cfg, "lock_primary_subject", False) and raw_data:
+                    previous = raw_data[-1]
+                    centers = np.column_stack(((boxes[:, 0] + boxes[:, 2]) / 2, (boxes[:, 1] + boxes[:, 3]) / 2))
+                    largest_idx = int(np.argmin((centers[:, 0] - previous["cx"]) ** 2 + (centers[:, 1] - previous["cy"]) ** 2))
                 x1, y1, x2, y2 = boxes[largest_idx]
                 center_x = x1 + (x2 - x1) / 2
                 center_y = y1 + (y2 - y1) / 2
@@ -200,10 +204,11 @@ def buat_video_hybrid(
             )
 
             if results.detections:
-                largest_face = max(
-                    results.detections,
-                    key=lambda d: d.bounding_box.width * d.bounding_box.height,
-                ).bounding_box
+                candidates = [d.bounding_box for d in results.detections]
+                largest_face = max(candidates, key=lambda box: box.width * box.height)
+                if getattr(cfg, "lock_primary_subject", False) and raw_data:
+                    previous = raw_data[-1]
+                    largest_face = min(candidates, key=lambda box: (box.origin_x + box.width / 2 - previous["cx"]) ** 2 + (box.origin_y + box.height / 2 - previous["cy"]) ** 2)
                 center_x = largest_face.origin_x + (largest_face.width / 2)
                 center_y = largest_face.origin_y + (largest_face.height / 2)
                 face_box = (

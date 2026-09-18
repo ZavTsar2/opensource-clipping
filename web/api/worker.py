@@ -39,14 +39,14 @@ def get_settings_env() -> dict[str, str]:
     return dict(_settings_env)
 
 
-def _validate_clip_selections(clips: list[dict], *, expected: int, minimum_seconds: int) -> None:
+def _validate_clip_selections(clips: list[dict], *, expected: int | None, minimum_seconds: int) -> None:
     """Stop bad AI selections before they consume GPU rendering time.
 
     Titles are generated independently from timing, so a plausible title is not
     proof that the selected footage is unique.  We deliberately fail early when
     the model returns short or substantially overlapping source ranges.
     """
-    if len(clips) != expected:
+    if expected is not None and len(clips) != expected:
         raise ValueError(f"AI returned {len(clips)} clips; {expected} distinct clips were requested.")
 
     ranges: list[tuple[float, float]] = []
@@ -236,7 +236,7 @@ def _run_pipeline_sync(job_id: str, payload: dict) -> None:
         hasil_json = metadata.normalize_and_validate(hasil_json)
         _validate_clip_selections(
             hasil_json,
-            expected=int(cfg.jumlah_clip),
+            expected=None if getattr(cfg, "clip_count_auto", False) else int(cfg.jumlah_clip),
             minimum_seconds=int(getattr(cfg, "min_clip_seconds", 30)),
         )
         metadata_path = os.path.join(cfg.outputs_dir, "metadata_preview.json")

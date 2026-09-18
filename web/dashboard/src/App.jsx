@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createJob, fetchHealth, fetchJob, fetchMedia, getConnection, isDirectMediaUrl, saveConnection } from './api'
+import { clearConnection, createJob, fetchHealth, fetchJob, fetchMedia, getConnection, isDirectMediaUrl, saveConnection } from './api'
 
 const HISTORY_KEY = 'clip-studio-history'
 const ACTIVE_STATES = new Set(['queued', 'downloading', 'transcribing', 'analyzing', 'rendering'])

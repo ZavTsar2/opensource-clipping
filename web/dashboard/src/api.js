@@ -1,8 +1,14 @@
 const CONNECTION_KEY = 'clip-studio-connection'
+// Safari private browsing may deny localStorage. Retain the active connection
+// in this tab so connecting still works, even though it cannot be remembered.
+let memoryConnection = null
 
 export function getConnection() {
+  if (memoryConnection) return memoryConnection
   try {
-    return JSON.parse(localStorage.getItem(CONNECTION_KEY)) || { url: '', token: '' }
+    const stored = JSON.parse(localStorage.getItem(CONNECTION_KEY))
+    if (stored?.url && stored?.token) memoryConnection = stored
+    return memoryConnection || { url: '', token: '' }
   } catch {
     return { url: '', token: '' }
   }
@@ -11,11 +17,18 @@ export function getConnection() {
 export function saveConnection(connection) {
   // Safari private browsing can reject storage writes. The current browser
   // session can still use the connection even when persistence is unavailable.
+  memoryConnection = connection
   try { localStorage.setItem(CONNECTION_KEY, JSON.stringify(connection)) } catch {}
+}
+
+export function clearConnection() {
+  memoryConnection = null
+  try { localStorage.removeItem(CONNECTION_KEY) } catch {}
 }
 
 function apiBase() {
   const { url } = getConnection()
+  if (!url) throw new Error('Connect your notebook first. Paste its current tunnel URL and personal token on this device.')
   return `${url.replace(/\/$/, '')}/api`
 }
 

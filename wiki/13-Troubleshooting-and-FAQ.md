@@ -219,6 +219,10 @@ This uses Whisper translation only. `--use-dlp-subs` keeps YouTube's available s
 
 Segment trimming is enabled by default and the AI is instructed to use complete, self-contained thoughts. Do not use `--no-segment-trim` unless you specifically need raw, untrimmed cuts; it may cause mid-sentence cutoffs. Use `--duration 45` for a strict runtime; the default `--duration auto` ends at a natural thought boundary.
 
+### Why did a selected clip start slightly before the AI timestamp?
+
+Hook refinement is enabled by default. It searches a `--hook-window` of 3 seconds for a clear local audio-energy peak, then falls back to frame motion, and starts about 0.75 seconds before that event. Output metadata retains `original_start_time`, `corrected_start_time`, and the method used. Pass `--no-hook-refinement` to keep the exact AI timestamps. Use `--crop-mode reaction_split` for a reaction or screen-recording source that should keep both sides visible.
+
 ---
 
 ### Q: Can I use trending TikTok or Instagram sounds?

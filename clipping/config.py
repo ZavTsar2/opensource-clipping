@@ -312,6 +312,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=DURASI_HOOK,
         help="Hook teaser duration in seconds",
     )
+    p.add_argument("--hook-window", type=float, default=3.0,
+                   help="Seconds either side of an AI start inspected for an audio or motion hook peak.")
+    p.add_argument("--no-hook-refinement", dest="refine_hook_timestamps", action="store_false",
+                   help="Keep AI timestamps exactly; refinement is enabled by default.")
+    p.set_defaults(refine_hook_timestamps=True)
+    p.add_argument("--crop-mode", choices=["face", "reaction_split"], default="face",
+                   help="reaction_split uses vertical split framing to preserve reaction-side content.")
     p.add_argument(
         "--hook-source",
         default=None,
@@ -909,6 +916,9 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         durasi_hook=args.hook_duration,
         hook_source=args.hook_source,
         hook_source_start=args.hook_source_start,
+        hook_window=args.hook_window,
+        refine_hook_timestamps=args.refine_hook_timestamps,
+        crop_mode=args.crop_mode,
         # Hook V2 & Segment Trimming
         hook_v2=args.hook_v2,
         hook_v2_items=args.hook_v2_items,
@@ -920,9 +930,9 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         use_hook_glitch=not args.no_hook,
         use_auto_bgm=not args.no_bgm,
         use_karaoke_effect=not args.no_karaoke,
-        use_split_screen=args.split_screen,
+        use_split_screen=args.split_screen or args.crop_mode == "reaction_split",
         use_dynamic_split=args.dynamic_split,
-        split_trigger=args.split_trigger,
+        split_trigger="face" if args.crop_mode == "reaction_split" else args.split_trigger,
         use_camera_switch=args.camera_switch,
         diarization_num_speakers=args.diarization_speakers,
         switch_hold_duration=args.switch_hold_duration,

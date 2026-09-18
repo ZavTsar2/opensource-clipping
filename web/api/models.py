@@ -99,6 +99,9 @@ class JobCreateRequest(BaseModel):
     # Content & Hook
     words_per_sub: int = Field(5, ge=1, le=15)
     hook_duration: int = Field(3, ge=1, le=10)
+    hook_window: float = Field(3.0, ge=0.5, le=10.0)
+    refine_hook_timestamps: bool = True
+    crop_mode: Literal["face", "reaction_split"] = "face"
     use_broll: bool = True
     use_hook_glitch: bool = True
     use_auto_bgm: bool = True

@@ -9,7 +9,7 @@ import json
 import os
 
 from . import diarization as diarization_mod
-from . import engine, metadata, studio, hook_manager, voiceover
+from . import engine, hook_refinement, metadata, studio, hook_manager, voiceover
 
 
 def run_pipeline(cfg) -> list[dict]:
@@ -88,6 +88,12 @@ def run_pipeline(cfg) -> list[dict]:
             caption_lang=getattr(cfg, "caption_lang", "auto"),
         )
 
+    if not getattr(cfg, "no_subs", False) and (not transkrip_lengkap or not data_segmen):
+        raise RuntimeError(
+            "Caption generation failed: no usable transcript was produced. "
+            "Fix the source audio/subtitle settings, or use --no-subs for clean footage."
+        )
+
     if not reuse_preview_cache:
         with open(transcript_cache_path, "w", encoding="utf-8") as handle:
             json.dump(data_segmen, handle, ensure_ascii=False, indent=2)
@@ -109,6 +115,8 @@ def run_pipeline(cfg) -> list[dict]:
 
     # Step 4 — Metadata normalisation
     hasil_json = metadata.normalize_and_validate(hasil_json)
+    if getattr(cfg, "refine_hook_timestamps", True):
+        hook_refinement.refine_clip_starts(hasil_json, cfg.file_video_asli, float(getattr(cfg, "hook_window", 3.0)))
     selected_ranks = getattr(cfg, "render_preview_ids", None)
     if selected_ranks:
         hasil_json = [clip for clip in hasil_json if int(clip.get("rank", -1)) in selected_ranks]

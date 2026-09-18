@@ -47,6 +47,18 @@ USE_KARAOKE_EFFECT = True
 
 GAYA_FONT_AKTIF = "HORMOZI"
 
+# Presets only pre-fill defaults. A flag explicitly supplied on the command
+# line always wins because argparse applies it after these defaults.
+PRESET_DEFAULTS = {
+    "viral_shorts": {"clips": 10, "ratio": "9:16", "font_style": "HORMOZI", "bgm_mode": "ducking", "hook_v2": True},
+    "podcast_highlights": {"clips": 8, "ratio": "9:16", "font_style": "STORYTELLER", "split_screen": True, "silence_trim": True},
+    "clean_minimal": {"clips": 5, "font_style": "MINIMAL_CLEAN", "no_broll": True, "no_hook": True, "no_karaoke": True},
+    # Deliberately conservative and repeatable: stable model, sentence-aware
+    # trimming, no hyperactive hook montage, and a sensible Shorts range.
+    "balanced": {"clips": 5, "ratio": "9:16", "font_style": "HORMOZI", "silence_trim": True,
+                 "min_clip_duration": 15, "max_clip_duration": 60, "gemini_model": "gemini-2.5-flash"},
+}
+
 DAFTAR_FONT = {
     "DEFAULT": {
         "utama": {
@@ -103,6 +115,21 @@ DAFTAR_FONT = {
             "url": "https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.ttf",
             "bold": 0,
         },
+    },
+    "BOLD_POP": {
+        "utama": {"nama": "Montserrat Black", "file": "Montserrat-Black.ttf", "url": "https://raw.githubusercontent.com/JulietaUla/Montserrat/master/fonts/ttf/Montserrat-Black.ttf", "bold": 1},
+        "khusus": {"nama": "Anton", "file": "Anton-Regular.ttf", "url": "https://cdn.jsdelivr.net/fontsource/fonts/anton@latest/latin-400-normal.ttf", "bold": 0},
+        "caption": {"primary_colour": "&H00FFFFFF&", "highlight_colour": "&H0000FFFF&", "position": "bottom", "animation": "bounce_pop"},
+    },
+    "MINIMAL_CLEAN": {
+        "utama": {"nama": "Inter", "file": "Inter-Regular.ttf", "url": "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf", "bold": 0},
+        "khusus": {"nama": "Inter", "file": "Inter-SemiBold.ttf", "url": "https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.ttf", "bold": 1},
+        "caption": {"primary_colour": "&H00FFFFFF&", "highlight_colour": "&H00E6E6E6&", "position": "bottom", "animation": "fade"},
+    },
+    "NEON_PULSE": {
+        "utama": {"nama": "Roboto", "file": "Roboto-Regular.ttf", "url": "https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-400-normal.ttf", "bold": 0},
+        "khusus": {"nama": "Bebas Neue", "file": "BebasNeue-Regular.ttf", "url": "https://cdn.jsdelivr.net/fontsource/fonts/bebas-neue@latest/latin-400-normal.ttf", "bold": 0},
+        "caption": {"primary_colour": "&H00FFFFFF&", "highlight_colour": "&H00FF00FF&", "position": "bottom", "animation": "pulse"},
     },
 }
 
@@ -191,6 +218,30 @@ def _parse_download_height(val: str) -> str | int:
         raise argparse.ArgumentTypeError("Download source height must be a positive integer.")
     return parsed
 
+
+def _parse_clip_count(val: str) -> str | int:
+    if val.lower() == "auto":
+        return "auto"
+    try:
+        count = int(val)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Use a whole number from 1 to 20, or 'auto'.") from exc
+    if not 1 <= count <= 20:
+        raise argparse.ArgumentTypeError("--clips must be from 1 to 20, or 'auto'.")
+    return count
+
+
+def _parse_duration(val: str) -> str | int:
+    if val.lower() == "auto":
+        return "auto"
+    try:
+        seconds = int(val)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("Use a positive number of seconds or 'auto'.") from exc
+    if seconds < 1:
+        raise argparse.ArgumentTypeError("--duration must be a positive number of seconds.")
+    return seconds
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="🎬 OpenSource Clipping — AI Auto-Clipper & Teaser Generator",
@@ -217,10 +268,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--clips",
         "-n",
-        type=int,
+        type=_parse_clip_count,
         default=JUMLAH_CLIP,
-        help="Number of highlight clips to generate",
+        help="Number of highlight clips (1-20), or 'auto' to keep only strong self-contained moments",
     )
+    p.add_argument("--preset", choices=list(PRESET_DEFAULTS), default=None,
+                   help="Pre-fill a creative preset; explicitly supplied flags override it.")
+    p.add_argument("--duration", type=_parse_duration, default="auto",
+                   help="'auto' keeps complete thoughts within the min/max range; a number forces exact seconds.")
+    p.add_argument("--min-clip-duration", type=int, default=20,
+                   help="Minimum duration used by --duration auto.")
+    p.add_argument("--max-clip-duration", type=int, default=179,
+                   help="Maximum duration used by --duration auto.")
     p.add_argument(
         "--ratio",
         "-r",
@@ -273,6 +332,10 @@ def _build_parser() -> argparse.ArgumentParser:
         default=BGM_MODE,
         help="BGM mixing mode: 'ducking' (sidechain compress — BGM auto-lowers during speech) or 'background' (constant low volume mix)",
     )
+    p.add_argument("--bgm-track", default=None,
+                   help="Exact local royalty-free MP3 filename from assets/bgm (overrides genre).")
+    p.add_argument("--bgm-genre", choices=BGM_MOODS, default=None,
+                   help="Royalty-free BGM genre: overrides AI-selected mood.")
     p.add_argument(
         "--no-karaoke",
         action="store_true",
@@ -357,7 +420,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--font-style",
         default=GAYA_FONT_AKTIF,
-        choices=["DEFAULT", "STORYTELLER", "HORMOZI", "CINEMATIC"],
+        choices=list(DAFTAR_FONT),
         help="Font style preset",
     )
     p.add_argument(
@@ -379,6 +442,8 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Use yt-dlp to download auto/manual subtitles to speed up process (skipping Whisper if found)",
     )
+    p.add_argument("--caption-lang", choices=["auto", "en"], default="auto",
+                   help="Whisper only: 'en' translates spoken audio to English. Does not alter --use-dlp-subs.")
     p.add_argument(
         "--whisper-model", default=WHISPER_MODEL, help="Faster-Whisper model size"
     )
@@ -429,6 +494,10 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Load the saved gemini_response.json from outputs dir to bypass the AI generation step (useful for debugging)",
     )
+    p.add_argument("--preview-only", action="store_true",
+                   help="Download, transcribe, and analyse only; save candidate clips without rendering.")
+    p.add_argument("--render-from-preview", default=None,
+                   help="Comma-separated candidate ranks from gemini_response.json to render without another AI call.")
     p.add_argument(
         "--box-face-detection",
         action="store_true",
@@ -578,7 +647,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-segment-trim",
         action="store_true",
         default=False,
-        help="Disable AI segment trimming (render full start-to-end instead of keep_segments).",
+        help="Only disable for raw, untrimmed cuts — may cause mid-sentence cutoffs.",
     )
     hook_v2_group.add_argument(
         "--silence-trim",
@@ -621,20 +690,23 @@ def _build_parser() -> argparse.ArgumentParser:
     vo_group = p.add_argument_group("Voice-Over Commentary (TTS)")
     vo_group.add_argument(
         "--voiceover",
-        action="store_true",
-        default=False,
-        help="Enable AI voice-over commentary mode using Gemini and edge-tts.",
+        nargs="?",
+        const="tts-dub",
+        choices=["none", "tts-dub"],
+        default="none",
+        help="Voice-over mode. Use --voiceover or --voiceover tts-dub to enable Edge-TTS; default: none.",
     )
     vo_group.add_argument(
         "--voiceover-voice",
-        default="en-GB-MaisieNeural",
-        help="TTS voice for edge-tts (e.g. id-ID-ArdiNeural, en-US-AvaNeural).",
+        default="en-US-JennyNeural",
+        choices=["en-US-JennyNeural", "en-US-GuyNeural", "en-US-AriaNeural", "en-GB-SoniaNeural", "id-ID-ArdiNeural", "id-ID-GadisNeural"],
+        help="Natural Edge-TTS voice.",
     )
     vo_group.add_argument(
         "--voiceover-lang",
-        choices=["id", "en"],
-        default="en",
-        help="Language for the commentary script generation.",
+        choices=["auto", "id", "en"],
+        default="auto",
+        help="Voice-over language; auto follows --caption-lang (English when caption language is auto).",
     )
     vo_group.add_argument(
         "--voiceover-style",
@@ -738,7 +810,29 @@ def _build_parser() -> argparse.ArgumentParser:
 def build_config(argv: list[str] | None = None) -> SimpleNamespace:
     """Parse CLI args and merge with defaults into a config namespace."""
     parser = _build_parser()
+    # Parse once just to discover the requested preset, then set its values as
+    # parser defaults. argparse applies actual command-line arguments after
+    # defaults, so `--preset viral_shorts --clips 3` correctly yields 3.
+    preset_args, _ = parser.parse_known_args(argv)
+    if preset_args.preset:
+        parser.set_defaults(**PRESET_DEFAULTS[preset_args.preset])
     args = parser.parse_args(argv)
+
+    if args.min_clip_duration < 1 or args.max_clip_duration < args.min_clip_duration:
+        parser.error("Clip duration bounds must be positive and max must be at least min.")
+    if args.duration != "auto":
+        args.min_clip_duration = args.duration
+        args.max_clip_duration = args.duration
+    if args.render_from_preview:
+        args.load_gemini_json = True
+        try:
+            args.render_preview_ids = [int(value.strip()) for value in args.render_from_preview.split(",") if value.strip()]
+        except ValueError:
+            parser.error("--render-from-preview must be comma-separated numeric ranks, e.g. 1,3,5.")
+        if not args.render_preview_ids:
+            parser.error("--render-from-preview needs at least one candidate rank.")
+    else:
+        args.render_preview_ids = None
 
     # Validate: --url is required unless --story-mode is used
     if not args.story_mode and not args.url:
@@ -799,6 +893,13 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         source_platform="tiktok" if args.tiktok else args.source,
         url_youtube=args.url,
         jumlah_clip=args.clips,
+        clip_count_auto=args.clips == "auto",
+        auto_clip_min=1,
+        auto_clip_max=12,
+        duration_mode=args.duration,
+        min_clip_seconds=args.min_clip_duration,
+        max_clip_seconds=args.max_clip_duration,
+        preset=args.preset,
         pilihan_rasio=args.ratio,
         download_source_height=args.source_height,
         render_output_height=args.render_height,
@@ -852,10 +953,13 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         # BGM
         bgm_base_volume=BGM_BASE_VOLUME,
         bgm_mode=args.bgm_mode,
+        bgm_track=args.bgm_track,
+        bgm_genre=args.bgm_genre,
         bgm_moods=BGM_MOODS,
         bgm_dir=BGM_DIR,
         # Whisper
         use_dlp_subs=args.use_dlp_subs,
+        caption_lang=args.caption_lang,
         whisper_model=args.whisper_model,
         whisper_device=args.whisper_device,
         whisper_compute_type=args.whisper_compute_type,
@@ -866,6 +970,8 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         gemini_model=args.gemini_model,
         gemini_fallback_model=args.gemini_fallback_model,
         load_gemini_json=args.load_gemini_json,
+        preview_only=args.preview_only,
+        render_preview_ids=args.render_preview_ids,
         # Tracking Tuning
         track_step=args.track_step,
         track_deadzone=args.track_deadzone,
@@ -901,7 +1007,7 @@ def build_config(argv: list[str] | None = None) -> SimpleNamespace:
         # Voice-Over Commentary
         voiceover=args.voiceover,
         voiceover_voice=args.voiceover_voice,
-        voiceover_lang=args.voiceover_lang,
+        voiceover_lang=(args.caption_lang if args.voiceover_lang == "auto" and args.caption_lang != "auto" else "en" if args.voiceover_lang == "auto" else args.voiceover_lang),
         voiceover_style=args.voiceover_style,
         voiceover_length=args.voiceover_length,
         voiceover_volume=args.voiceover_volume,

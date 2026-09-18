@@ -111,11 +111,13 @@ def buat_file_ass(
 
     font_utama = font_utama_dict["nama"]
     font_khusus = font_khusus_dict["nama"]
+    style_options = daftar_font[gaya].get("caption", {})
+    primary_colour = style_options.get("primary_colour", "&H00FFFFFF&")
 
     scale_base_khusus = (
         cfg.scale_kata_khusus_916 if _is_vertical_ratio(rasio) else cfg.scale_kata_khusus_169
     )
-    warna_khusus = cfg.warna_kata_khusus
+    warna_khusus = style_options.get("highlight_colour", cfg.warna_kata_khusus)
 
     def get_scale_value(level):
         if level == 3:
@@ -138,6 +140,8 @@ def buat_file_ass(
         margin_v = 0
     else:
         align = cfg.ass_align_916 if _is_vertical_ratio(rasio) else cfg.ass_align_169
+        if style_options.get("position") == "top":
+            align = 8
         margin_v = int((cfg.ass_margin_916 if _is_vertical_ratio(rasio) else cfg.ass_margin_169) * scale_factor)
     font_sz = int((cfg.ass_font_916 if _is_vertical_ratio(rasio) else cfg.ass_font_169) * scale_factor)
     margin_lr = int((60 if _is_vertical_ratio(rasio) else 40) * scale_factor)
@@ -151,7 +155,7 @@ def buat_file_ass(
         f"ScaledBorderAndShadow: yes\n\n"
         f"[V4+ Styles]\n"
         f"Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,{font_utama},{font_sz},&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{outline_val},{shadow_val},{align},{margin_lr},{margin_lr},{margin_v},1\n\n"
+        f"Style: Default,{font_utama},{font_sz},{primary_colour},&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{outline_val},{shadow_val},{align},{margin_lr},{margin_lr},{margin_v},1\n\n"
         f"[Events]\n"
         f"Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
@@ -185,7 +189,7 @@ def buat_file_ass(
                             if pakai_karaoke:
                                 if j == i:
                                     text_parts.append(
-                                        f"{{\\c&H00FFFF&}}{x['word']}{{\\c&HFFFFFF&}}"
+                                        f"{{\\c{warna_khusus}}}{x['word']}{{\\c{primary_colour}}}"
                                     )
                                 else:
                                     text_parts.append(x["word"])
@@ -335,7 +339,7 @@ def buat_file_ass(
 
                     if w_data["plan"]:
                         w_style = w_data["plan"].get("style", "khusus")
-                        w_anim = w_data["plan"].get("animasi", "bounce_pop")
+                        w_anim = w_data["plan"].get("animasi", style_options.get("animation", "bounce_pop"))
                         target_scale = get_scale_value(
                             w_data["plan"].get("scale_level", 2)
                         )

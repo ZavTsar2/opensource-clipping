@@ -8,7 +8,7 @@ import os
 import random
 
 
-def get_local_bgm_file(mood, bgm_dir):
+def get_local_bgm_file(mood, bgm_dir, track=None):
     """
     Get a random BGM MP3 file from the local assets directory based on mood.
 
@@ -19,6 +19,14 @@ def get_local_bgm_file(mood, bgm_dir):
     Returns:
         str: Absolute path to the selected MP3 file, or None if not found/empty.
     """
+    if track:
+        # Accept a basename or a path below assets/bgm only. This deliberately
+        # never downloads platform/trending audio.
+        for root, _, files in os.walk(bgm_dir):
+            if track in files:
+                return os.path.abspath(os.path.join(root, track))
+        return None
+
     mood_dir = os.path.join(bgm_dir, mood)
 
     if not os.path.exists(mood_dir) or not os.path.isdir(mood_dir):

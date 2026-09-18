@@ -547,14 +547,14 @@ def proses_klip(
             # Skip the standard MAIN render + subtitle/BGM encoding loop
             # and go directly to BGM application on the concatenated result
             aktif_bgm = cfg.use_auto_bgm
-            bgm_mood = clip.get("bgm_mood", "chill")
+            bgm_mood = getattr(cfg, "bgm_genre", None) or clip.get("bgm_mood", "chill")
             if bgm_mood not in getattr(cfg, "bgm_moods", ["chill"]):
                 bgm_mood = "chill"
             
             file_bgm = None
             if aktif_bgm:
                 print(f"   🎵 Mencari file BGM lokal (Mood: {bgm_mood})...")
-                file_bgm = get_local_bgm_file(bgm_mood, getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")))
+                file_bgm = get_local_bgm_file(bgm_mood, getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")), getattr(cfg, "bgm_track", None))
                 if not file_bgm and bgm_mood != "chill":
                     print("   🔄 Fallback mencari BGM chill...")
                     file_bgm = get_local_bgm_file("chill", getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")))
@@ -651,14 +651,14 @@ def proses_klip(
 
             # SMART BGM
             aktif_bgm = cfg.use_auto_bgm
-            bgm_mood = clip.get("bgm_mood", "chill")
+            bgm_mood = getattr(cfg, "bgm_genre", None) or clip.get("bgm_mood", "chill")
             if bgm_mood not in getattr(cfg, "bgm_moods", ["chill"]):
                 bgm_mood = "chill"
                 
             file_bgm = None
             if aktif_bgm:
                 print(f"   🎵 Mencari file BGM lokal (Mood: {bgm_mood})...")
-                file_bgm = get_local_bgm_file(bgm_mood, getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")))
+                file_bgm = get_local_bgm_file(bgm_mood, getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")), getattr(cfg, "bgm_track", None))
                 if not file_bgm and bgm_mood != "chill":
                     print("   🔄 Fallback mencari BGM chill...")
                     file_bgm = get_local_bgm_file("chill", getattr(cfg, "bgm_dir", os.path.join(cfg.base_dir, "assets", "bgm")))

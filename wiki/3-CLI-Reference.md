@@ -10,7 +10,10 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 |---|---|---|
 | `--url`, `-u` | — | Video URL to process (**Required** unless `--story-mode`) |
 | `--source` | `youtube` | Video source platform: `youtube`, `tiktok`, `instagram`, `gdrive` |
-| `--clips`, `-n` | `7` | Number of highlight clips to generate |
+| `--clips`, `-n` | `7` | Number of highlight clips (`1`-`20`), or `auto` to keep only strong self-contained moments (up to 12) |
+| `--preset` | — | `viral_shorts`, `podcast_highlights`, `clean_minimal`, or stable `balanced`; explicit flags override preset values |
+| `--duration` | `auto` | Natural complete-thought duration; set seconds for a strict fixed length |
+| `--min-clip-duration` / `--max-clip-duration` | `20` / `179` | Bounds used by automatic duration mode |
 | `--ratio`, `-r` | `9:16` | Output aspect ratio: `9:16`, `16:9`, `1:1`, `3:4`, `4:5` |
 | `--source-height` | `max` | Preferred source download max height (`max`, `1080`, `1440`, `2160`) |
 | `--render-height` | `1080` | Target output render height (`1080`, `1440`, `2160`, `source`) |
@@ -53,7 +56,7 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 | `--hook-v2-items` | `3` | Number of micro-hooks to generate |
 | `--hook-v2-style` | `controversial_fast_glitch` | Style prompt for AI hook selection |
 | `--white-flash-duration` | `0.12` | Duration of flash transition between hooks (seconds) |
-| `--no-segment-trim` | `False` | Disable AI segment trimming (render full clip) |
+| `--no-segment-trim` | `False` | Only disable for raw, untrimmed cuts — may cause mid-sentence cutoffs |
 | `--silence-trim` | `False` | Aggressively trim silence/dead air |
 
 ---
@@ -62,7 +65,7 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 
 | Argument | Default | Description |
 |---|---|---|
-| `--font-style` | `HORMOZI` | Font preset: `DEFAULT`, `STORYTELLER`, `HORMOZI`, `CINEMATIC` |
+| `--font-style` | `HORMOZI` | Font preset: `DEFAULT`, `STORYTELLER`, `HORMOZI`, `CINEMATIC`, `BOLD_POP`, `MINIMAL_CLEAN`, `NEON_PULSE` |
 | `--advanced-text` | `False` | Enable kinetic typography (word scaling & animation) |
 | `--advanced-text-hook` | `False` | Enable kinetic typography on hook teaser |
 
@@ -73,6 +76,8 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 | Argument | Default | Description |
 |---|---|---|
 | `--bgm-mode` | `ducking` | `ducking` (auto-lower during speech) or `background` (constant low volume) |
+| `--bgm-genre` | — | Local royalty-free genre: `chill`, `epic`, `sad`, `upbeat`, `suspense` |
+| `--bgm-track` | — | Exact local MP3 filename under `assets/bgm`; overrides genre |
 
 ---
 
@@ -125,6 +130,26 @@ Complete reference for all command-line arguments. Run `python main.py --help` f
 | `--whisper-device` | `cuda` | Device: `cuda`, `cpu`, `auto` |
 | `--whisper-compute-type` | `float16` | Compute type: `float32`, `float16`, `int8` |
 | `--use-dlp-subs` | — | Use YouTube's built-in subtitles (skips Whisper if found) |
+| `--caption-lang` | `auto` | Whisper only: `en` translates spoken audio to English; it does not change `--use-dlp-subs` |
+
+---
+
+## Candidate preview and selective render
+
+| Argument | Default | Description |
+|---|---|---|
+| `--preview-only` | `False` | Download, transcribe, analyse, and save `outputs/clip_candidates.json` without rendering |
+| `--render-from-preview 1,3,5` | — | Reuse preview caches (`gemini_response.json`, source, transcript) and render only those ranks; no second download, transcription, or AI analysis pass when the cache is present |
+
+---
+
+## Voice-over
+
+| Argument | Default | Description |
+|---|---|---|
+| `--voiceover [tts-dub]` | `none` | Enable free Edge-TTS commentary; `--voiceover` alone remains valid |
+| `--voiceover-voice` | `en-US-JennyNeural` | Curated natural Edge-TTS voice |
+| `--voiceover-lang` | `auto` | `auto`, `en`, or `id`; auto follows English caption translation when selected |
 
 ---
 

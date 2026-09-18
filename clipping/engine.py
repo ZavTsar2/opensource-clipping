@@ -359,6 +359,7 @@ def transcribe_video(
     model_size: str = "large-v3",
     device: str = "cuda",
     compute_type: str = "float16",
+    caption_lang: str = "auto",
 ) -> tuple[str, list[dict]]:
     """
     Transcribe *video_path* using Faster-Whisper.
@@ -383,7 +384,13 @@ def transcribe_video(
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
 
     print("      ⏳ Mendekode audio & mengekstrak fitur (belum ada output)...", flush=True)
-    segments, info = model.transcribe(video_path, beam_size=5, word_timestamps=True)
+    # `task=translate` is the supported Whisper translation path. Do not set
+    # language="en": that incorrectly assumes the source audio is English.
+    transcribe_options = {"beam_size": 5, "word_timestamps": True}
+    if caption_lang == "en":
+        transcribe_options["task"] = "translate"
+        print("      Translating Whisper captions to English...", flush=True)
+    segments, info = model.transcribe(video_path, **transcribe_options)
 
     transkrip_lengkap = ""
     data_segmen: list[dict] = []
@@ -572,7 +579,7 @@ def _generate_json_with_retry(client, model, fallback_model, contents, config):
 MIN_CLIP_DURATION = 20
 MAX_CLIP_DURATION = 179
 
-def get_analysis_prompt(transkrip_lengkap: str, jumlah_clip: int, durasi_hook: int, cfg=None) -> str:
+def get_analysis_prompt(transkrip_lengkap: str, jumlah_clip: int | str, durasi_hook: int, cfg=None) -> str:
     """Centralized prompt for both Gemini and NVIDIA providers."""
     # CLI behaviour remains unchanged; the personal API can request a more
     # practical Shorts range without changing the upstream command defaults.
@@ -622,6 +629,10 @@ SEGMENT-BASED TRIMMING (KEEP SEGMENTS — WAJIB):
 - Jika seluruh durasi klip sudah padat dan menarik, cukup buat 1 segment yang mencakup seluruh durasi.{_silence_hint}
 - Isi field "keep_segments" sebagai array dari objek (start_time, end_time).
 """
+    clip_request = (
+        f"sebanyak mungkin momen yang benar-benar kuat, minimum {getattr(cfg, 'auto_clip_min', 1)} dan maksimum {getattr(cfg, 'auto_clip_max', 12)}. Jangan isi kuota dengan momen lemah"
+        if jumlah_clip == "auto" else str(jumlah_clip)
+    )
     return f"""
 Kamu adalah Art Director, Editor Video, dan Strategist Metadata Short-Form Content untuk TikTok, Reels, dan YouTube Shorts.
 
@@ -629,7 +640,7 @@ Baca transkrip video berikut. Format transkrip:
 [detik_mulai - detik_selesai] teks
 
 TUGAS UTAMA:
-- Carikan {jumlah_clip} momen paling menarik, paling kuat, paling shareable, dan paling berpotensi viral untuk dijadikan klip pendek.
+- Carikan {clip_request} momen paling menarik, paling kuat, paling shareable, dan paling berpotensi viral untuk dijadikan klip pendek.
 - FOKUS PILIHAN: {category_instructions}
 - Urutkan klip berdasarkan viral_score tertinggi (paling berpotensi viral) ke terendah. Peringkat ("rank") hanya sebagai nomor urut (1, 2, 3...).
 - Untuk setiap klip, hasilkan timing klip, hook, typography plan, b-roll plan, alasan pemilihan, metadata lintas platform, dan klasifikasi akun tujuan.
@@ -665,10 +676,13 @@ ATURAN RETENTION & STRUKTUR KLIP:
 ATURAN PEMOTONGAN TIMING:
 - start_time harus dimulai sedekat mungkin dengan momen kuat pertama, bukan sekadar awal topik.
 - end_time harus berhenti setelah payoff, kesimpulan, punchline, atau emotional beat utama selesai.
+- WAJIB mulai dan berakhir pada batas kalimat atau pikiran yang lengkap. Jangan pernah mulai/selesai di tengah kata, frasa, klausa, atau respons yang belum selesai.
+- Setiap klip harus mandiri: penonton yang tidak melihat video asal harus memahami konteks minimum, konflik/insight, dan payoff-nya.
+- Hook yang jelas harus terdengar dalam 1-2 detik pertama. Geser start_time ke kalimat hook yang lengkap bila perlu.
 - Jangan potong terlalu awal jika kalimat masih menggantung.
 - Jangan lanjutkan klip terlalu lama setelah inti pesan selesai.
 - Klip harus tetap bisa dipahami tanpa harus menonton bagian sebelum atau sesudahnya.
-- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, gabungkan menjadi satu klip selama durasi tetap {min_clip_duration}-{max_clip_duration} detik.
+- Jika ada dua momen kuat yang terlalu berdekatan dan saling mendukung, gabungkan menjadi satu klip dengan panjang alami {min_clip_duration}-{max_clip_duration} detik, berhenti pada akhir pikiran yang lengkap.
 - Jika ada dua momen kuat tetapi angle-nya berbeda, pisahkan sebagai kandidat klip berbeda.
 
 PENILAIAN INTERNAL VIRAL_SCORE:
@@ -1141,6 +1155,38 @@ def analyze_with_ai(transkrip_lengkap: str, cfg) -> list[dict]:
     return analyze_with_gemini(transkrip_lengkap, cfg)
 
 
+def _chunk_transcript_for_analysis(transcript: str, max_chars: int = 60000) -> list[str]:
+    """Split long timestamped transcripts at line boundaries, never truncate."""
+    if len(transcript) <= max_chars:
+        return [transcript]
+    chunks, current, size = [], [], 0
+    for line in transcript.splitlines(keepends=True):
+        if current and size + len(line) > max_chars:
+            chunks.append("".join(current))
+            current, size = [], 0
+        current.append(line)
+        size += len(line)
+    if current:
+        chunks.append("".join(current))
+    return chunks
+
+
+def _dedupe_ranked_candidates(candidates: list[dict], limit: int) -> list[dict]:
+    """Keep high-scoring, non-overlapping candidates from transcript chunks."""
+    kept = []
+    for clip in sorted(candidates, key=lambda item: float(item.get("viral_score", 0)), reverse=True):
+        start, end = float(clip.get("start_time", 0)), float(clip.get("end_time", 0))
+        duration = max(end - start, 0.001)
+        overlaps = any(max(0, min(end, float(old.get("end_time", 0))) - max(start, float(old.get("start_time", 0)))) / duration > 0.2 for old in kept)
+        if not overlaps:
+            kept.append(clip)
+        if len(kept) >= limit:
+            break
+    for rank, clip in enumerate(kept, start=1):
+        clip["rank"] = rank
+    return kept
+
+
 def analyze_with_gemini(
     transkrip_lengkap: str,
     cfg,
@@ -1150,8 +1196,6 @@ def analyze_with_gemini(
     from google.genai import types
 
     print(f"[3/3] Menganalisis Top {cfg.jumlah_clip} momen terbaik menggunakan Gemini...")
-
-    prompt = get_analysis_prompt(transkrip_lengkap, cfg.jumlah_clip, cfg.durasi_hook, cfg=cfg)
 
     # JSON Schema definitions (same as before)
     schema_broll = {
@@ -1311,10 +1355,21 @@ def analyze_with_gemini(
         },
     )
 
-    return _generate_json_with_retry(
-        client=client,
-        model=cfg.gemini_model,
-        fallback_model=getattr(cfg, "gemini_fallback_model", None),
-        contents=prompt,
-        config=gemini_config,
-    )
+    chunks = _chunk_transcript_for_analysis(transkrip_lengkap)
+    if len(chunks) > 1:
+        print(f"      Long transcript split into {len(chunks)} analysis chunks (no text discarded).")
+    requested = getattr(cfg, "auto_clip_max", 12) if getattr(cfg, "clip_count_auto", False) else int(cfg.jumlah_clip)
+    # Ask each chunk for a few additional candidates, then deduplicate globally.
+    per_chunk = max(1, min(20, (requested + len(chunks) - 1) // len(chunks) + 2))
+    all_candidates = []
+    for index, chunk in enumerate(chunks, start=1):
+        if len(chunks) > 1:
+            print(f"      Analysing transcript chunk {index}/{len(chunks)}...")
+        count_request = "auto" if getattr(cfg, "clip_count_auto", False) else per_chunk
+        prompt = get_analysis_prompt(chunk, count_request, cfg.durasi_hook, cfg=cfg)
+        all_candidates.extend(_generate_json_with_retry(
+            client=client, model=cfg.gemini_model,
+            fallback_model=getattr(cfg, "gemini_fallback_model", None),
+            contents=prompt, config=gemini_config,
+        ))
+    return _dedupe_ranked_candidates(all_candidates, requested)

@@ -192,6 +192,41 @@ Try these approaches:
 
 ---
 
+### Q: How do I review clips before expensive rendering?
+
+Run analysis only, inspect `outputs/clip_candidates.json`, then render just the ranks you want:
+
+```bash
+python main.py --url "VIDEO_URL" --preview-only
+python main.py --url "VIDEO_URL" --render-from-preview 1,3,5
+```
+
+The second command reuses `gemini_response.json`; it does not make another Gemini analysis request.
+
+---
+
+### Q: How do I make captions English for non-English speech?
+
+```bash
+python main.py --url "VIDEO_URL" --caption-lang en
+```
+
+This uses Whisper translation only. `--use-dlp-subs` keeps YouTube's available subtitle language unchanged.
+
+---
+
+### Q: Why are clips cut mid-sentence or feel incomplete?
+
+Segment trimming is enabled by default and the AI is instructed to use complete, self-contained thoughts. Do not use `--no-segment-trim` unless you specifically need raw, untrimmed cuts; it may cause mid-sentence cutoffs. Use `--duration 45` for a strict runtime; the default `--duration auto` ends at a natural thought boundary.
+
+---
+
+### Q: Can I use trending TikTok or Instagram sounds?
+
+No. The project only selects local royalty-free tracks from `assets/bgm`. Reusing platform sounds outside their licensed context risks audio fingerprinting, takedowns, and demonetization. Use `--bgm-genre upbeat` or `--bgm-track your-file.mp3` with a track you are licensed to use.
+
+---
+
 ## Disk Cleanup
 
 The pipeline creates intermediate files that can take up significant space. Clean up with:

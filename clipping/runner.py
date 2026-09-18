@@ -36,17 +36,26 @@ def run_pipeline(cfg) -> list[dict]:
 
     # Step 1 — Download
     source_platform = getattr(cfg, "source_platform", "youtube")
-    engine.download_video(
-        cfg.url_youtube,
-        cfg.file_video_asli,
-        getattr(cfg, "use_dlp_subs", False),
-        getattr(cfg, "download_source_height", "max"),
-        source_platform=source_platform,
-    )
+    transcript_cache_path = os.path.join(cfg.outputs_dir, "transcript_segments.json")
+    reuse_preview_cache = bool(getattr(cfg, "render_preview_ids", None)) and os.path.exists(cfg.file_video_asli) and os.path.exists(transcript_cache_path)
+    if not reuse_preview_cache:
+        engine.download_video(
+            cfg.url_youtube, cfg.file_video_asli, getattr(cfg, "use_dlp_subs", False),
+            getattr(cfg, "download_source_height", "max"), source_platform=source_platform,
+        )
 
     # Step 2 — Transcribe
     transkrip_lengkap = ""
     data_segmen = []
+
+    if reuse_preview_cache:
+        print("Reusing cached source and transcript from preview; skipping download/transcription.")
+        with open(transcript_cache_path, "r", encoding="utf-8") as handle:
+            data_segmen = json.load(handle)
+        transkrip_lengkap = "\n".join(
+            f"[{seg.get('start', 0):.1f} - {seg.get('end', 0):.1f}] {seg.get('text') or ' '.join(word.get('word', '') for word in seg.get('words', []))}"
+            for seg in data_segmen
+        )
 
     import glob
 
@@ -55,7 +64,7 @@ def run_pipeline(cfg) -> list[dict]:
     file_json3 = json3_files[0] if json3_files else None
 
     # Only run YouTube JSON3 subtitle search for YouTube sources
-    if source_platform == "youtube":
+    if not reuse_preview_cache and source_platform == "youtube":
         if (
             getattr(cfg, "use_dlp_subs", False)
             and file_json3
@@ -69,14 +78,19 @@ def run_pipeline(cfg) -> list[dict]:
                     f"✅ Berhasil memparsing subtitle dari YouTube ({os.path.basename(file_json3)}), melewati proses Whisper."
                 )
 
-    if not transkrip_lengkap or not data_segmen:
+    if not reuse_preview_cache and (not transkrip_lengkap or not data_segmen):
         transkrip_lengkap, data_segmen = engine.transcribe_video(
             cfg.file_video_asli,
             max_words_per_subtitle=cfg.max_kata_per_subtitle,
             model_size=cfg.whisper_model,
             device=cfg.whisper_device,
             compute_type=cfg.whisper_compute_type,
+            caption_lang=getattr(cfg, "caption_lang", "auto"),
         )
+
+    if not reuse_preview_cache:
+        with open(transcript_cache_path, "w", encoding="utf-8") as handle:
+            json.dump(data_segmen, handle, ensure_ascii=False, indent=2)
 
     # Step 3 — Gemini AI analysis
     gemini_output_path = os.path.join(cfg.outputs_dir, "gemini_response.json")
@@ -95,10 +109,30 @@ def run_pipeline(cfg) -> list[dict]:
 
     # Step 4 — Metadata normalisation
     hasil_json = metadata.normalize_and_validate(hasil_json)
+    selected_ranks = getattr(cfg, "render_preview_ids", None)
+    if selected_ranks:
+        hasil_json = [clip for clip in hasil_json if int(clip.get("rank", -1)) in selected_ranks]
+        if not hasil_json:
+            raise ValueError("None of the requested preview ranks exist in gemini_response.json.")
     metadata.print_preview(hasil_json)
 
     metadata_path = os.path.join(cfg.outputs_dir, "metadata_preview.json")
     metadata.save_metadata_preview(hasil_json, path=metadata_path)
+
+    if getattr(cfg, "preview_only", False):
+        candidates = [
+            {"id": clip.get("rank"), "title": clip.get("title_inggris") or clip.get("title_indonesia"),
+             "hook": clip.get("description_hook"), "start_time": clip.get("start_time"),
+             "end_time": clip.get("end_time"), "viral_score": clip.get("viral_score")}
+            for clip in hasil_json
+        ]
+        preview_path = os.path.join(cfg.outputs_dir, "clip_candidates.json")
+        with open(preview_path, "w", encoding="utf-8") as handle:
+            json.dump(candidates, handle, ensure_ascii=False, indent=2)
+        print(f"\nPreview only: {len(candidates)} candidate(s) saved to {preview_path}")
+        for item in candidates:
+            print(f"  #{item['id']} [{item['start_time']}s-{item['end_time']}s] score={item['viral_score']}: {item['title']}")
+        return []
 
     # Step 5 — Diarization (split-screen / camera-switch)
     diarization_data = None
@@ -180,7 +214,7 @@ def run_pipeline(cfg) -> list[dict]:
         custom_hook_path = hook_manager.download_custom_hook(cfg)
 
     # Step 5.5 — Generate Voice-Over (if enabled)
-    if getattr(cfg, "voiceover", False):
+    if getattr(cfg, "voiceover", "none") != "none":
         print(f"\n🎙️ Meng-generate Voice-Over untuk {len(hasil_json)} klip...")
         for klip in hasil_json:
             try:
